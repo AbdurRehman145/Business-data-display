@@ -30,6 +30,7 @@ export default function Home() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Filters state
   const [search, setSearch] = useState("");
@@ -98,6 +99,35 @@ export default function Home() {
     fetchData();
   }, [debouncedSearch, city, hasPhone, hasWebsite, page]);
 
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const query = new URLSearchParams();
+      if (debouncedSearch) query.append("search", debouncedSearch);
+      if (city !== "All") query.append("city", city);
+      if (hasPhone !== "any") query.append("hasPhone", hasPhone);
+      if (hasWebsite !== "any") query.append("hasWebsite", hasWebsite);
+
+      const res = await fetch(`/api/export?${query.toString()}`);
+      if (!res.ok) throw new Error("Failed to download export");
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "businesses_export.csv";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Failed to fetch export", error);
+      alert("Failed to download the data. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const getPageNumbers = () => {
     const delta = 2;
     const range: (number | string)[] = [];
@@ -116,8 +146,30 @@ export default function Home() {
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header Section */}
-        <header className="mb-8">
+        <header className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-3xl font-bold text-gray-800 tracking-tight">Business Directory</h1>
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading || loading || businesses.length === 0}
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isDownloading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download CSV
+              </>
+            )}
+          </button>
         </header>
 
         {/* Filter Controls */}
